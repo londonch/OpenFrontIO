@@ -48,6 +48,7 @@ import { PathFinder } from "../pathfinding/types";
 import type { ExecRecord, SnapshotWriter } from "../snapshot/SnapshotContext";
 import { RailNetwork } from "./RailNetwork";
 import { Stats } from "./Stats";
+import type { StrategyManager } from "./StrategyManager";
 
 export interface OwnerComp {
   owner: Player;
@@ -633,6 +634,8 @@ export interface Game extends GameLike {
 
   addUpdate(update: GameUpdate): void;
   railNetwork(): RailNetwork;
+  /** The grand strategy layer: research, focus, laws, industry, wars. */
+  strategy(): StrategyManager;
   /** MIRVs launched so far by anyone; each one raises the next one's price. */
   mirvsLaunched(): number;
   recordMirvLaunch(): void;

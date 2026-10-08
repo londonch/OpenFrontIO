@@ -94,6 +94,7 @@ import {
 } from "./RailNetworkImpl";
 import { Stats } from "./Stats";
 import { StatsImpl, StatsSnapshot } from "./StatsImpl";
+import { StrategyManager, StrategySnapshot } from "./StrategyManager";
 import { WaterManager, WaterManagerSnapshot } from "./WaterManager";
 
 export function createGame(
@@ -151,6 +152,7 @@ export class GameImpl implements Game {
   private playerTeams: Team[] = [];
   private botTeam: Team = ColoredTeams.Bot;
   private _railNetwork: RailNetwork = createRailNetwork(this);
+  private _strategy: StrategyManager = new StrategyManager(this);
 
   // Used to assign unique IDs to each new alliance
   private nextAllianceID: number = 0;
@@ -198,6 +200,7 @@ export class GameImpl implements Game {
         this.populateTeams();
       }
       this.addPlayers();
+      this._strategy.initDeposits();
     }
 
     console.log(
@@ -564,6 +567,9 @@ export class GameImpl implements Game {
 
     this.execs.push(...inited);
     this.unInitExecs = unInited;
+    if (!this.inSpawnPhase()) {
+      this._strategy.tick(this._ticks);
+    }
     for (const player of this._players.values()) {
       // Sampled before toUpdate so the reading is of the tick that just ran.
       // Dead and unspawned players are skipped: an eliminated player's fall
@@ -582,6 +588,7 @@ export class GameImpl implements Game {
       );
       if (update !== null) this.addUpdate(update);
     }
+    this._strategy.flushUpdates(this._ticks);
     if (this.ticks() % 10 === 0) {
       this.addUpdate({
         type: GameUpdateType.Hash,
@@ -678,7 +685,7 @@ export class GameImpl implements Game {
     this._players.forEach((p) => {
       hash += p.hash();
     });
-    return hash;
+    return hash + this._strategy.hash();
   }
 
   terraNullius(): TerraNullius {
@@ -741,6 +748,7 @@ export class GameImpl implements Game {
     this._playersBySmallID.push(player);
     this.nextPlayerID++;
     this._players.set(playerInfo.id, player);
+    this._strategy.addPlayer(player);
     return player;
   }
 
@@ -1397,6 +1405,10 @@ export class GameImpl implements Game {
   stats(): Stats {
     return this._stats;
   }
+  strategy(): StrategyManager {
+    return this._strategy;
+  }
+
   railNetwork(): RailNetwork {
     return this._railNetwork;
   }
@@ -1490,6 +1502,7 @@ export class GameImpl implements Game {
         this._sharedWaterCache.snapshot(w),
       ),
       stats: w.versioned(StatsSnapshot, (this._stats as StatsImpl).snapshot()),
+      strategy: w.versioned(StrategySnapshot, this._strategy.snapshot()),
     };
   }
 
@@ -1550,6 +1563,13 @@ export class GameImpl implements Game {
     (this._stats as StatsImpl).restoreSnapshot(
       readVersioned(StatsSnapshot, s.stats),
     );
+    if (s.strategy === null) {
+      this._strategy.restoreDefaults(
+        this._playersBySmallID.filter((p) => p !== undefined),
+      );
+    } else {
+      this._strategy.restore(readVersioned(StrategySnapshot, s.strategy));
+    }
   }
 
   conquerPlayer(conqueror: Player, conquered: Player) {
@@ -1627,6 +1647,8 @@ export class GameImpl implements Game {
       ).length + 1,
     );
 
+    this._strategy.onPlayerConquered(conquered);
+
     this.addUpdate({
       type: GameUpdateType.ConquestEvent,
       conquerorId: conqueror.id(),
@@ -1638,7 +1660,11 @@ export class GameImpl implements Game {
 
 export const GameSnapshot = snapshotType({
   name: "Game",
-  version: 1,
+  version: 2,
+  migrations: {
+    // v2 added the grand strategy layer; older games start it fresh.
+    1: (d) => ({ ...d, strategy: null }),
+  },
   schema: z.object({
     ticks: zInt(),
     startTick: zInt().nullable(),
@@ -1672,6 +1698,7 @@ export const GameSnapshot = snapshotType({
     water: VersionedSchema,
     sharedWaterCache: VersionedSchema,
     stats: VersionedSchema,
+    strategy: VersionedSchema.nullable(),
   }),
 });
 export type GameState = z.infer<typeof GameSnapshot.schema>;

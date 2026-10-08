@@ -25,7 +25,10 @@ function makeConfig(gameConfig: Partial<GameConfig> = {}): EngineConfig {
 const config = makeConfig();
 
 function player(isLobbyCreator = false): Player {
-  return { isLobbyCreator: () => isLobbyCreator } as unknown as Player;
+  return {
+    isLobbyCreator: () => isLobbyCreator,
+    strategyModifier: () => 0,
+  } as unknown as Player;
 }
 
 const DISTANCES = [

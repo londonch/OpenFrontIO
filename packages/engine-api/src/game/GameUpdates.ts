@@ -17,6 +17,7 @@ import {
   UnitType,
   WarshipState,
 } from "./GameTypes";
+import { StrategyView } from "./Strategy";
 
 export interface GameUpdateViewData {
   tick: number;
@@ -115,6 +116,7 @@ export enum GameUpdateType {
   SpawnPhaseEnd,
   GamePaused,
   DonateEvent,
+  Strategy,
 }
 
 export type GameUpdate =
@@ -140,7 +142,8 @@ export type GameUpdate =
   | EmbargoUpdate
   | SpawnPhaseEndUpdate
   | GamePausedUpdate
-  | DonateEventUpdate;
+  | DonateEventUpdate
+  | StrategyUpdate;
 
 export interface BonusEventUpdate {
   type: GameUpdateType.BonusEvent;
@@ -388,4 +391,15 @@ export interface SpawnPhaseEndUpdate {
 export interface GamePausedUpdate {
   type: GameUpdateType.GamePaused;
   paused: boolean;
+}
+
+/**
+ * A player's grand strategy state (research, focus, laws, industry, wars).
+ * Sent when it changes, at most once a second for progress alone.
+ */
+export interface StrategyUpdate {
+  type: GameUpdateType.Strategy;
+  /** Small id of the player the view describes. */
+  playerID: number;
+  view: StrategyView;
 }

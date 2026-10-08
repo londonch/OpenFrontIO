@@ -149,6 +149,12 @@ export const DERIVED_FIELDS = new Set<string>([
   "nearbyMemo",
   // SharedWaterCache
   "playerWater",
+  // StrategyManager: deposits come from the map, modifiers from research,
+  // focuses and laws, and the rest is per-tick view bookkeeping.
+  "strategyDeposits",
+  "strategyModifierCache",
+  "strategySentViews",
+  "strategyDirty",
   // Config / EngineConfig
   "unitInfoCache",
   "engineUnitInfoCache",

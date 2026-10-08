@@ -230,7 +230,10 @@ describe("EngineConfig.trainGold trade stop penalty", () => {
       randomSpawn: false,
     };
     config = new EngineConfig(gameConfig, false);
-    mockPlayer = { isLobbyCreator: () => false } as unknown as Player;
+    mockPlayer = {
+      isLobbyCreator: () => false,
+      strategyModifier: () => 0,
+    } as unknown as Player;
   });
 
   it("returns full base gold within free window (stops 0-9)", () => {

@@ -47,6 +47,10 @@ const GHOST_COST_OUTLINE_WIDTH = 1.4;
  */
 const ATTACK_LABEL_SCREEN_SCALE = 17.0;
 const ATTACK_LABEL_OUTLINE_WIDTH = 1.2;
+/** World-space font size for resource deposit labels. */
+const DEPOSIT_LABEL_SCALE = 7;
+const DEPOSIT_LABEL_ALPHA = 0.8;
+const DEPOSIT_LABEL_OUTLINE_WIDTH = 1.4;
 
 // ---------------------------------------------------------------------------
 // Active popup tracking
@@ -140,6 +144,10 @@ export class WorldTextPass {
   // Persistent attack-troop labels. Controller pushes the full list each frame
   // (already interpolated), so we just iterate and render.
   private attackTroopLabels: AttackTroopLabel[] = [];
+
+  // Resource deposit names, drawn in world space so they read as map
+  // features: they shrink with the map when zooming out.
+  private depositLabels: AttackTroopLabel[] = [];
 
   // Settings reference
   private settings: RenderSettings;
@@ -375,6 +383,11 @@ export class WorldTextPass {
     this.attackTroopLabels = labels;
   }
 
+  /** Replace the resource deposit labels; empty array clears them. */
+  setDepositLabels(labels: AttackTroopLabel[]): void {
+    this.depositLabels = labels;
+  }
+
   // -------------------------------------------------------------------------
   // Tick — cull expired, rebuild instance buffer
   // -------------------------------------------------------------------------
@@ -383,7 +396,8 @@ export class WorldTextPass {
     if (
       this.active.length === 0 &&
       this.ghostCostLabel === null &&
-      this.attackTroopLabels.length === 0
+      this.attackTroopLabels.length === 0 &&
+      this.depositLabels.length === 0
     ) {
       this.instanceCount = 0;
       return;
@@ -444,6 +458,35 @@ export class WorldTextPass {
         this.instanceData[off + 7] = popup.colorB;
         this.instanceData[off + 8] = popup.scale;
         this.instanceData[off + 9] = popup.outlineWidth;
+        count++;
+      }
+    }
+
+    // Deposit labels — fixed world size, faded so they sit under the action.
+    for (const label of this.depositLabels) {
+      layoutString(
+        label.text,
+        this.glyph,
+        this.kernTable,
+        this.charCodes,
+        this.cursors,
+      );
+      const len = Math.min(label.text.length, MAX_CHARS);
+      for (let i = 0; i < len; i++) {
+        if (this.charCodes[i] === 0) continue;
+        if (count >= this.maxInstances) this.growBuffer();
+
+        const off = count * FLOATS_PER_INSTANCE;
+        this.instanceData[off + 0] = label.x;
+        this.instanceData[off + 1] = label.y;
+        this.instanceData[off + 2] = this.cursors[i];
+        this.instanceData[off + 3] = this.charCodes[i];
+        this.instanceData[off + 4] = DEPOSIT_LABEL_ALPHA;
+        this.instanceData[off + 5] = label.colorR;
+        this.instanceData[off + 6] = label.colorG;
+        this.instanceData[off + 7] = label.colorB;
+        this.instanceData[off + 8] = DEPOSIT_LABEL_SCALE;
+        this.instanceData[off + 9] = DEPOSIT_LABEL_OUTLINE_WIDTH;
         count++;
       }
     }

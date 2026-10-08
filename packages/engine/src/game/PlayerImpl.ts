@@ -32,6 +32,7 @@ import {
   PlayerUpdate,
 } from "@openfront/engine-api/game/GameUpdates";
 import { ReadonlyTileSet } from "@openfront/engine-api/game/ReadViews";
+import { ModifierKey } from "@openfront/engine-api/game/Strategy";
 import { ClientID } from "@openfront/engine-api/Schemas";
 import { andFN, manhattanDistFN } from "@openfront/engine-lib/game/GameMapImpl";
 import { TileSet } from "@openfront/engine-lib/game/TileSet";
@@ -829,6 +830,10 @@ export class PlayerImpl implements Player {
     if (this.isFriendly(other) || !this.isAlive()) {
       return false;
     }
+    // Make peace first.
+    if (this.mg.strategy().hasDeclaredWar(this, other)) {
+      return false;
+    }
 
     const hasPending = this.outgoingAllianceRequests().some(
       (ar) => ar.recipient() === other,
@@ -1230,7 +1235,11 @@ export class PlayerImpl implements Player {
   canTrade(other: Player): boolean {
     const embargo =
       other.hasEmbargoAgainst(this) || this.hasEmbargoAgainst(other);
-    return !embargo && other.id() !== this.id();
+    return (
+      !embargo &&
+      other.id() !== this.id() &&
+      !this.mg.strategy().hasDeclaredWar(this, other)
+    );
   }
 
   getEmbargoes(): Embargo[] {
@@ -1415,6 +1424,7 @@ export class PlayerImpl implements Player {
     this._myUnitsVersion++;
     this.recordUnitConstructed(type);
     this.removeGold(cost);
+    this.mg.strategy().payForUnit(this, type);
     this.removeTroops("troops" in params ? (params.troops ?? 0) : 0);
     this.mg.addUpdate(b.toUpdate());
     this.mg.addUnit(b);
@@ -1462,6 +1472,10 @@ export class PlayerImpl implements Player {
     if (unitType !== UnitType.MIRVWarhead && !this.isAlive()) {
       return false;
     }
+    // Research locks and raw materials.
+    if (this.mg.strategy().unitBlocker(this, unitType) !== null) {
+      return false;
+    }
     return true;
   }
 
@@ -1498,6 +1512,7 @@ export class PlayerImpl implements Player {
   upgradeUnit(unit: Unit) {
     const cost = this.mg.unitInfo(unit.type()).cost(this.mg, this);
     this.removeGold(cost);
+    this.mg.strategy().payForUnit(this, unit.type());
     unit.increaseLevel();
     this.recordUnitConstructed(unit.type());
   }
@@ -1640,6 +1655,14 @@ export class PlayerImpl implements Player {
       mg.config().gameConfig().gameType !== GameType.Singleplayer;
     if (owner.isPlayer()) {
       if (this.isOnSameTeam(owner) && !gameOver) {
+        return false;
+      }
+      // Nuking someone is an act of war: declare one first.
+      if (
+        owner !== this &&
+        !gameOver &&
+        !mg.strategy().warAllowsAttack(this, owner)
+      ) {
         return false;
       }
     }
@@ -1920,11 +1943,19 @@ export class PlayerImpl implements Player {
     player: Player,
     treatAFKFriendly: boolean = false,
   ): boolean {
+    // No attacks without a war (tribes excepted, see warAllowsAttack).
+    if (!this.mg.strategy().warAllowsAttack(this, player)) {
+      return false;
+    }
     if (this.type() !== PlayerType.Human) {
       // Only human attackers respect PVP immunity
       return !this.isFriendly(player, treatAFKFriendly);
     }
     return !player.isImmune() && !this.isFriendly(player, treatAFKFriendly);
+  }
+
+  strategyModifier(key: ModifierKey): number {
+    return this.mg.strategy().modifierPct(this, key);
   }
 
   public canAttack(tile: TileRef): boolean {

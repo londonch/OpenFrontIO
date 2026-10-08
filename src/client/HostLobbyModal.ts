@@ -86,6 +86,7 @@ export class HostLobbyModal extends BaseModal {
   @state() private playerLimitValue: number | undefined = undefined;
   @state() private startDelayValue: number | undefined = 3;
   @state() private instantBuild: boolean = false;
+  @state() private instantResearch: boolean = false;
   @state() private randomSpawn: boolean = false;
   @state() private compactMap: boolean = false;
   @state() private goldMultiplier: boolean = false;
@@ -675,6 +676,10 @@ export class HostLobbyModal extends BaseModal {
                     checked: this.instantBuild,
                   },
                   {
+                    labelKey: "game_settings.instant_research",
+                    checked: this.instantResearch,
+                  },
+                  {
                     labelKey: "game_settings.random_spawn",
                     checked: this.randomSpawn,
                   },
@@ -1022,6 +1027,7 @@ export class HostLobbyModal extends BaseModal {
     this.playerLimitLoadedFor = null;
     this.startDelayValue = 3;
     this.instantBuild = false;
+    this.instantResearch = false;
     this.randomSpawn = false;
     this.compactMap = false;
     this.useRandomMap = false;
@@ -1120,6 +1126,10 @@ export class HostLobbyModal extends BaseModal {
     switch (labelKey) {
       case "game_settings.instant_build":
         this.handleInstantBuildChange(checked);
+        break;
+      case "game_settings.instant_research":
+        this.instantResearch = checked;
+        this.putGameConfig();
         break;
       case "game_settings.random_spawn":
         this.handleRandomSpawnChange(checked);
@@ -1645,6 +1655,7 @@ export class HostLobbyModal extends BaseModal {
             infiniteTroops: this.infiniteTroops,
             donateTroops: this.donateTroops,
             instantBuild: this.instantBuild,
+            instantResearch: this.instantResearch,
             randomSpawn: this.randomSpawn,
             gameMode: this.gameMode,
             disabledUnits: this.disabledUnits,

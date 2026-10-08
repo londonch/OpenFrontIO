@@ -182,6 +182,10 @@ export class Config {
   instantBuild(): boolean {
     return this._gameConfig.instantBuild;
   }
+  /** Sandbox: research and national focuses finish at once. */
+  instantResearch(): boolean {
+    return this._gameConfig.instantResearch ?? false;
+  }
   disableAlliances(): boolean {
     // customAllianceDuration === 0 disables alliances (the "custom alliances"
     // control at 0). The legacy boolean is still honored for older configs.
@@ -339,19 +343,24 @@ export class Config {
       return maxTroops / 3;
     }
 
+    // Conscription laws, mobilization techs and focuses.
+    const pct = player.strategyModifier("maxTroops");
+    const withStrategy =
+      pct === 0 ? maxTroops : (maxTroops * Math.max(10, 100 + pct)) / 100;
+
     if (player.type() === PlayerType.Human) {
-      return maxTroops;
+      return withStrategy;
     }
 
     switch (this._gameConfig.difficulty) {
       case Difficulty.Easy:
-        return maxTroops * 0.5;
+        return withStrategy * 0.5;
       case Difficulty.Medium:
-        return maxTroops * 0.75;
+        return withStrategy * 0.75;
       case Difficulty.Hard:
-        return maxTroops * 1; // Like humans
+        return withStrategy * 1; // Like humans
       case Difficulty.Impossible:
-        return maxTroops * 1.25;
+        return withStrategy * 1.25;
       default:
         assertNever(this._gameConfig.difficulty);
     }
@@ -367,6 +376,9 @@ export class Config {
 
     if (player.type() === PlayerType.Bot) {
       toAdd *= 0.5;
+    } else {
+      const pct = player.strategyModifier("troopGrowth");
+      if (pct !== 0) toAdd *= Math.max(10, 100 + pct) / 100;
     }
 
     if (player.type() === PlayerType.Nation) {

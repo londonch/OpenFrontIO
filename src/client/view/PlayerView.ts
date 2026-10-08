@@ -4,6 +4,7 @@ import {
   BuildableUnit,
   Cell,
   EmojiMessage,
+  GameMode,
   Gold,
   NameViewData,
   PlayerActions,
@@ -22,6 +23,7 @@ import {
   PlayerUpdate,
 } from "@openfront/engine-api/game/GameUpdates";
 import { PlayerLike } from "@openfront/engine-api/game/ReadViews";
+import { ModifierKey, StrategyView } from "@openfront/engine-api/game/Strategy";
 import { PatternDecoder } from "@openfront/shared/PatternDecoder";
 import { createRandomName } from "@openfront/shared/SharedUtil";
 import { PlayerCosmetics } from "@openfront/shared/WireSchemas";
@@ -603,6 +605,32 @@ export class PlayerView implements PlayerLike {
       ? this.game.ticks() - this.state.markedDoomsdayClockTick
       : 0;
   }
+  /** Grand strategy state; null for tribes and before the first update. */
+  strategy(): StrategyView | null {
+    return this.game.strategyView(this.smallID());
+  }
+
+  strategyModifier(key: ModifierKey): number {
+    return this.strategy()?.modifiers[key] ?? 0;
+  }
+
+  /**
+   * At war with `other`: a declared war, or rival teams in a team game. Wars
+   * are symmetric, so either side's view answers.
+   */
+  isAtWarWith(other: PlayerView): boolean {
+    if (other === this) return false;
+    if (
+      this.game.config().gameConfig().gameMode === GameMode.Team &&
+      this.team() !== null &&
+      other.team() !== null &&
+      this.team() !== other.team()
+    ) {
+      return true;
+    }
+    return this.strategy()?.wars.includes(other.smallID()) ?? false;
+  }
+
   betrayals(): number {
     return this.state.betrayals;
   }

@@ -28,6 +28,7 @@ import { PauseExecution } from "./PauseExecution";
 import { QuickChatExecution } from "./QuickChatExecution";
 import { RetreatExecution } from "./RetreatExecution";
 import { SpawnExecution } from "./SpawnExecution";
+import { StrategyExecution } from "./StrategyExecution";
 import { TargetPlayerExecution } from "./TargetPlayerExecution";
 import { TransportShipExecution } from "./TransportShipExecution";
 import { TribeSpawner } from "./TribeSpawner";
@@ -144,6 +145,13 @@ export class Executor {
         return new MarkDisconnectedExecution(player, intent.isDisconnected);
       case "toggle_pause":
         return new PauseExecution(player, intent.paused);
+      case "strategy":
+        return new StrategyExecution(
+          player,
+          intent.action,
+          intent.key ?? null,
+          intent.target ?? null,
+        );
       default:
         throw new Error(`intent type ${intent} not found`);
     }

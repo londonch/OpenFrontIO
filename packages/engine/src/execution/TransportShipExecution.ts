@@ -271,6 +271,21 @@ export class TransportShipExecution implements Execution {
           }
           return;
         }
+        {
+          // Peace may have been signed during the crossing: no landing on a
+          // shore we are no longer at war with. The troops come home.
+          const shore = this.mg.owner(this.dst);
+          if (
+            shore.isPlayer() &&
+            !this.attacker.isFriendly(shore) &&
+            !this.mg.strategy().warAllowsAttack(this.attacker, shore)
+          ) {
+            this.attacker.addTroops(this.boat.troops());
+            this.boat.delete(false);
+            this.active = false;
+            return;
+          }
+        }
         this.attacker.conquer(this.dst);
         if (this.target.isPlayer() && this.attacker.isFriendly(this.target)) {
           this.attacker.addTroops(this.boat.troops());

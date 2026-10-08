@@ -259,6 +259,7 @@ export class NukeExecution implements Execution {
         if (this.nukeType === UnitType.MIRV) {
           this.mg.recordMirvLaunch();
         }
+        this.mg.strategy().onNukeLaunched(this.nukeType);
         // Record stats
         this.mg.stats().bombLaunch(this.player, target, this.nukeType);
       }

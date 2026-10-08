@@ -16,6 +16,7 @@ import {
   Trios,
   UnitType,
 } from "./game/GameTypes";
+import { STRATEGY_ACTIONS, STRATEGY_KEYS } from "./game/Strategy";
 import { PlayerStatsSchema } from "./StatsSchemas";
 
 export type GameID = string;
@@ -46,7 +47,8 @@ export type Intent =
   | KickPlayerIntent
   | TogglePauseIntent
   | UpdateGameConfigIntent
-  | ToggleGameStartTimer;
+  | ToggleGameStartTimer
+  | StrategyIntent;
 
 export type AttackIntent = z.infer<typeof AttackIntentSchema>;
 export type CancelAttackIntent = z.infer<typeof CancelAttackIntentSchema>;
@@ -83,6 +85,7 @@ export type UpdateGameConfigIntent = z.infer<
 export type ToggleGameStartTimer = z.infer<
   typeof ToggleGameStartTimerIntentSchema
 >;
+export type StrategyIntent = z.infer<typeof StrategyIntentSchema>;
 
 export type Turn = z.infer<typeof TurnSchema>;
 export type GameConfig = z.infer<typeof GameConfigSchema>;
@@ -281,6 +284,8 @@ export const GameConfigSchema = z.object({
   infiniteGold: z.boolean(),
   infiniteTroops: z.boolean(),
   instantBuild: z.boolean(),
+  // Sandbox: techs and national focuses complete at once.
+  instantResearch: z.boolean().optional(),
   disableNavMesh: z.boolean().optional(),
   disableAlliances: z.boolean().nullable().optional(),
   disableClanTags: z.boolean().optional(),
@@ -549,6 +554,15 @@ export const ToggleGameStartTimerIntentSchema = z.object({
   type: z.literal("toggle_game_start_timer"),
 });
 
+// Grand strategy: research, focus, laws, war goals, war and peace. `key`
+// names the tech, focus or law; `target` the other player.
+export const StrategyIntentSchema = z.object({
+  type: z.literal("strategy"),
+  action: z.enum(STRATEGY_ACTIONS),
+  key: z.enum(STRATEGY_KEYS).optional(),
+  target: MappedID.optional(),
+});
+
 export const IntentSchema = z.discriminatedUnion("type", [
   AttackIntentSchema,
   CancelAttackIntentSchema,
@@ -575,6 +589,7 @@ export const IntentSchema = z.discriminatedUnion("type", [
   TogglePauseIntentSchema,
   UpdateGameConfigIntentSchema,
   ToggleGameStartTimerIntentSchema,
+  StrategyIntentSchema,
 ]);
 
 // StampedIntent = Intent with server-stamped clientID (used in turns and execution)

@@ -18,12 +18,17 @@ import {
   SpawnPhaseEndUpdate,
 } from "@openfront/engine-api/game/GameUpdates";
 import { GameLike, UnitPredicate } from "@openfront/engine-api/game/ReadViews";
+import { StrategyView } from "@openfront/engine-api/game/Strategy";
 import { ClientID, GameID } from "@openfront/engine-api/Schemas";
 import { Config } from "@openfront/engine-lib/configuration/Config";
 import { unpackMotionPlans } from "@openfront/engine-lib/game/MotionPlans";
 import { TerrainMapData } from "@openfront/engine-lib/game/TerrainMapLoader";
 import { TerraNulliusImpl } from "@openfront/engine-lib/game/TerraNulliusImpl";
 import { UnitGrid } from "@openfront/engine-lib/game/UnitGrid";
+import {
+  Deposit,
+  generateDeposits,
+} from "@openfront/engine-lib/strategy/Deposits";
 import { PlayerCosmetics, WirePlayer } from "@openfront/shared/WireSchemas";
 import { computeAllianceClusters } from "../render/frame/derive/AllianceClusters";
 import { extractAttackRings } from "../render/frame/derive/AttackRings";
@@ -63,6 +68,9 @@ export class GameView implements GameLike {
   private startTick: Tick | null = null;
   private smallIDToID = new Map<number, PlayerID>();
   private _players = new Map<PlayerID, PlayerView>();
+  /** Grand strategy state per player small id (absent for tribes). */
+  private _strategyViews = new Map<number, StrategyView>();
+  private _deposits: Deposit[] | undefined;
   private _units = new Map<number, UnitView>();
   /**
    * Long-lived state maps (renderer's plain-object shape). Each entry shares
@@ -384,6 +392,10 @@ export class GameView implements GameLike {
     const stateOf = (smallID: number) => this._playerStates.get(smallID);
     applyPackedPlayerStats(gu.packedPlayerUpdates, stateOf);
     applyPackedAttackTroops(gu.packedAttackUpdates, stateOf);
+
+    for (const su of gu.updates[GameUpdateType.Strategy]) {
+      this._strategyViews.set(su.playerID, su.view);
+    }
 
     if (this._myClientID) {
       this._myPlayer ??= this.playerByClientID(this._myClientID);
@@ -784,6 +796,17 @@ export class GameView implements GameLike {
     for (const p of this._players.values()) {
       p.refreshCosmetics();
     }
+  }
+
+  /** A player's grand strategy state, or null for tribes and before the first update. */
+  strategyView(smallID: number): StrategyView | null {
+    return this._strategyViews.get(smallID) ?? null;
+  }
+
+  /** The map's strategic resource deposits (the engine generates the same). */
+  deposits(): Deposit[] {
+    this._deposits ??= generateDeposits(this);
+    return this._deposits;
   }
 
   playerBySmallID(id: number): PlayerView | TerraNullius {

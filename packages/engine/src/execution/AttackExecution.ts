@@ -19,6 +19,10 @@ import {
   zTile,
   zTiles,
 } from "@openfront/engine-lib/snapshot/SnapshotType";
+import {
+  STRATEGY_INTERVAL_TICKS,
+  SupplyLevel,
+} from "@openfront/engine-lib/strategy/StrategyRules";
 import { assertNever } from "@openfront/engine-lib/Util";
 import { z } from "zod";
 import { AttackLogicInput } from "../configuration/EngineConfig";
@@ -45,6 +49,9 @@ export class AttackExecution implements Execution {
   private map: GameMap;
 
   private attack: Attack | null = null;
+
+  /** Supply at the front, measured once a second (player targets only). */
+  private supply: SupplyLevel = SupplyLevel.Supplied;
 
   // Cached smallIDs for integer owner comparisons in hot loops.
   private ownerSmallID: number;
@@ -295,6 +302,43 @@ export class AttackExecution implements Execution {
       return;
     }
 
+    const strategy = this.mg.strategy();
+    if (targetPlayer && !strategy.warAllowsAttack(this._owner, targetPlayer)) {
+      // Peace was signed while the attack was underway.
+      this.retreat();
+      return;
+    }
+
+    // Grand strategy: doctrine, equipment, supply and fuel shape fights
+    // between players. Supply is measured at the front once a second, when
+    // the attack also burns fuel and bleeds troops if it is cut off.
+    let attackerStrength = 1;
+    let defenderStrength = 1;
+    let attackerSpeed = 1;
+    const strategic = targetPlayer !== null && strategy.rulesEnabled();
+    if (strategic) {
+      if (ticks % STRATEGY_INTERVAL_TICKS === 0) {
+        const front = this.toConquer.peek() ?? this.sourceTile;
+        this.supply =
+          front === null
+            ? SupplyLevel.Supplied
+            : strategy.supplyLevel(this._owner, front);
+        const attrition = strategy.attackUpkeep(
+          this._owner,
+          troopCount,
+          this.supply,
+        );
+        if (attrition > 0) {
+          troopCount -= attrition;
+          this.attack.setTroops(troopCount);
+          strategy.onTroopsLost(this._owner, attrition);
+        }
+      }
+      attackerStrength = strategy.attackStrength(this._owner, this.supply);
+      defenderStrength = strategy.defenseStrength(targetPlayer);
+      attackerSpeed = strategy.attackSpeed(this._owner, this.supply);
+    }
+
     const borderSize = this.attack.borderSize() + this.random.nextInt(0, 5);
     // Each tile consumes a fraction of the tick; conquer until it is spent.
     let tickBudget = 1;
@@ -333,16 +377,28 @@ export class AttackExecution implements Execution {
         continue;
       }
       this.addNeighbors(tileToConquer);
+      const input = this.attackLogicInput(
+        troopCount,
+        tileToConquer,
+        borderSize,
+      );
+      if (strategic) {
+        input.attackerStrength = attackerStrength;
+        input.defenderStrength = defenderStrength;
+        input.attackerSpeed = attackerSpeed;
+      }
       const { attackerTroopLoss, defenderTroopLoss, tickFraction } = this.mg
         .config()
-        .attackLogic(
-          this.attackLogicInput(troopCount, tileToConquer, borderSize),
-        );
+        .attackLogic(input);
       tickBudget -= tickFraction;
       troopCount -= attackerTroopLoss;
       this.attack.setTroops(troopCount);
       if (targetPlayer) {
         targetPlayer.removeTroops(defenderTroopLoss);
+        if (strategic) {
+          strategy.onTroopsLost(this._owner, attackerTroopLoss);
+          strategy.onTroopsLost(targetPlayer, defenderTroopLoss);
+        }
       }
       this._owner.conquer(tileToConquer);
       this.handleDeadDefender();
@@ -509,6 +565,7 @@ export class AttackExecution implements Execution {
       targetID: this._targetID,
       sourceTile: this.sourceTile,
       removeTroops: this.removeTroops,
+      supply: this.supply,
     });
   }
 
@@ -535,6 +592,7 @@ export class AttackExecution implements Execution {
     this._targetID = s.targetID;
     this.sourceTile = s.sourceTile;
     this.removeTroops = s.removeTroops;
+    this.supply = s.supply;
   }
 }
 
@@ -559,12 +617,17 @@ const AttackExecutionStateSchema = z.object({
   targetID: z.string().nullable(),
   sourceTile: zTile().nullable(),
   removeTroops: z.boolean(),
+  supply: z.enum(SupplyLevel),
 });
 type AttackExecutionState = z.infer<typeof AttackExecutionStateSchema>;
 
 export const AttackExecutionSnapshot = execSnapshotType({
   name: "Attack",
-  version: 1,
+  version: 2,
+  migrations: {
+    // v2: supply at the front (grand strategy).
+    1: (d) => ({ ...d, supply: SupplyLevel.Supplied }),
+  },
   schema: AttackExecutionStateSchema,
   cls: () => AttackExecution,
 });

@@ -77,6 +77,19 @@ export class TestConfig extends EngineConfig {
   attackLogic(_input: AttackLogicInput): AttackLogicResult {
     return { attackerTroopLoss: 1, defenderTroopLoss: 1, tickFraction: 1 };
   }
+
+  // Tests of other mechanics don't declare wars, research nukes or stock raw
+  // materials. GrandStrategyTestConfig turns the rules back on.
+  grandStrategy(): boolean {
+    return false;
+  }
+}
+
+/** TestConfig with the grand strategy rules on, as in a real game. */
+export class GrandStrategyTestConfig extends TestConfig {
+  grandStrategy(): boolean {
+    return true;
+  }
 }
 export class UseRealAttackLogic extends TestConfig {
   attackLogic(input: AttackLogicInput): AttackLogicResult {

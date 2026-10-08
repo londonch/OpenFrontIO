@@ -43,6 +43,11 @@ export class FlatBinaryHeap {
     this.tiles[i] = tile;
   }
 
+  /** the lowest-priority tile without removing it, or null when empty */
+  peek(): TileRef | null {
+    return this.len === 0 ? null : this.tiles[0];
+  }
+
   /** remove and return the lowest-priority tile (no per-call allocation) */
   dequeue(): TileRef {
     if (this.len === 0) throw new Error("heap empty");

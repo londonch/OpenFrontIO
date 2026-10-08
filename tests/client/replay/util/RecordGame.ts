@@ -8,6 +8,7 @@
 import { GameUpdateViewData } from "@openfront/engine-api/game/GameUpdates";
 import { Executor } from "@openfront/engine/execution/ExecutionManager";
 import { Game } from "@openfront/engine/game/Game";
+import { PlayerImpl } from "@openfront/engine/game/PlayerImpl";
 import { GameRunner } from "@openfront/engine/GameRunner";
 import { gunzipSync, gzipSync } from "zlib";
 import { ReplayReader } from "../../../../src/client/replay/codec/decode/ReplayReader";
@@ -203,7 +204,10 @@ export function captureTruth(
       troops: p.troops(),
       goldEarned: Number(p.goldEarned()),
       isAlive: p.isAlive(),
-      isTraitor: p.isTraitor(),
+      // As of the tick's update, which the engine builds before advancing
+      // the tick counter: isTraitor() read now is one tick later and flips
+      // early on the tick a traitor mark expires.
+      isTraitor: (p as PlayerImpl).lastSentUpdate?.isTraitor ?? p.isTraitor(),
       betrayals: p.betrayals(),
       allies: p.allies().map((a) => a.smallID()),
     });

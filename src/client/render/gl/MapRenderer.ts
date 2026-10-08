@@ -257,6 +257,9 @@ export class MapRenderer {
   setAttackTroopLabels(labels: AttackTroopLabel[]): void {
     this.renderer?.setAttackTroopLabels(labels);
   }
+  setDepositLabels(labels: AttackTroopLabel[]): void {
+    this.renderer?.setDepositLabels(labels);
+  }
   applyBonusEvents(events: BonusEvent[]): void {
     this.renderer?.applyBonusEvents(events);
   }

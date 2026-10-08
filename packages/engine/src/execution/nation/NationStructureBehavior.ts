@@ -500,6 +500,8 @@ export class NationStructureBehavior {
       !config.isUnitDisabled(UnitType.AtomBomb) &&
       missileSilosEnabled &&
       !config.isUnitDisabled(UnitType.SAMLauncher) &&
+      this.game.strategy().unitBlocker(this.player, UnitType.SAMLauncher) !==
+        "tech" &&
       this.hasHighStartingGold() &&
       this.maybeSpawnStructure(UnitType.SAMLauncher)
     ) {
@@ -544,8 +546,11 @@ export class NationStructureBehavior {
       !config.isUnitDisabled(UnitType.MIRV);
 
     for (const structureType of buildOrder) {
-      // Skip disabled structure types
-      if (config.isUnitDisabled(structureType)) {
+      // Skip disabled structure types, and ones not researched yet
+      if (
+        config.isUnitDisabled(structureType) ||
+        this.game.strategy().unitBlocker(this.player, structureType) === "tech"
+      ) {
         continue;
       }
 

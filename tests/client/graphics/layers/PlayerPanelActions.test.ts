@@ -39,13 +39,16 @@ import {
   GameType,
   PlayerType,
 } from "@openfront/engine-api/game/GameTypes";
+import { StrategyView } from "@openfront/engine-api/game/Strategy";
 import { flattenedEmojiTable } from "@openfront/engine-api/Schemas";
+import { emptyModifiers } from "@openfront/engine-lib/strategy/StrategyRules";
 import { EventBus } from "@openfront/shared/EventBus";
 import { actionButton } from "../../../../src/client/components/ui/ActionButton";
 import { PlayerPanel } from "../../../../src/client/hud/layers/PlayerPanel";
 import {
   SendEmbargoIntentEvent,
   SendEmojiIntentEvent,
+  SendStrategyIntentEvent,
 } from "../../../../src/client/Transport";
 import { PlayerView } from "../../../../src/client/view";
 
@@ -61,6 +64,7 @@ const my = {
   type: () => PlayerType.Human,
   clientID: () => "client-1",
   isLobbyCreator: () => false,
+  strategy: () => null,
 } as unknown as PlayerView;
 
 const other = {
@@ -257,5 +261,105 @@ describe("PlayerPanel - action buttons follow PlayerActions capability flags", (
     (panel as any).renderActions(my, my);
 
     expect(renderedLabels()).not.toContain("player_panel.emotes");
+  });
+});
+
+describe("PlayerPanel - war and peace", () => {
+  const OTHER_ID = 7;
+  let panel: PlayerPanel;
+  let eventBus: EventBus;
+
+  function view(overrides: Partial<StrategyView> = {}): StrategyView {
+    return {
+      politicalPower: 100,
+      wars: [],
+      warGoals: [],
+      truces: [],
+      incomingPeaceOffers: [],
+      outgoingPeaceOffers: [],
+      justification: null,
+      modifiers: emptyModifiers(),
+      ...overrides,
+    } as StrategyView;
+  }
+
+  function players(v: StrategyView, otherType = PlayerType.Nation) {
+    const me = {
+      ...my,
+      strategy: () => v,
+      isFriendly: () => false,
+      isAtWarWith: (o: PlayerView) => v.wars.includes(o.smallID()),
+    } as unknown as PlayerView;
+    const them = {
+      ...other,
+      smallID: () => OTHER_ID,
+      type: () => otherType,
+    } as unknown as PlayerView;
+    return { me, them };
+  }
+
+  function labelsFor(v: StrategyView, otherType?: PlayerType) {
+    const { me, them } = players(v, otherType);
+    mockActionButton.mockClear();
+    (panel as any).renderWarActions(me, them);
+    return renderedLabels();
+  }
+
+  beforeEach(() => {
+    panel = new PlayerPanel();
+    (panel as any).requestUpdate = vi.fn();
+    (panel as any).isVisible = true;
+    (panel as any).g = makeGame();
+    eventBus = new EventBus();
+    panel.eventBus = eventBus;
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test("at peace: justify a war goal", () => {
+    expect(labelsFor(view())).toEqual(["player_panel.justify_war_goal"]);
+  });
+
+  test("a justified war goal: declare war", () => {
+    const v = view({ warGoals: [{ target: OTHER_ID, expiresAt: 100 }] });
+    expect(labelsFor(v)).toEqual(["player_panel.declare_war"]);
+  });
+
+  test("at war: offer peace, or accept theirs", () => {
+    expect(labelsFor(view({ wars: [OTHER_ID] }))).toEqual([
+      "player_panel.offer_peace",
+    ]);
+    expect(
+      labelsFor(view({ wars: [OTHER_ID], incomingPeaceOffers: [OTHER_ID] })),
+    ).toEqual(["player_panel.accept_peace"]);
+  });
+
+  test("a truce blocks new war goals", () => {
+    expect(
+      labelsFor(view({ truces: [{ target: OTHER_ID, until: 100 }] })),
+    ).toEqual(["player_panel.truce"]);
+  });
+
+  test("tribes need no war, so they get no war actions", () => {
+    expect(labelsFor(view(), PlayerType.Bot)).toEqual([]);
+  });
+
+  test("the justify button sends a justify strategy intent", () => {
+    const events: SendStrategyIntentEvent[] = [];
+    eventBus.on(SendStrategyIntentEvent, (e) => events.push(e));
+    const { me, them } = players(view());
+    mockActionButton.mockClear();
+    (panel as any).renderWarActions(me, them);
+    const props = mockActionButton.mock.calls[0][0] as {
+      onClick: (e: unknown) => void;
+    };
+    props.onClick({ stopPropagation: vi.fn() });
+
+    expect(events).toHaveLength(1);
+    expect(events[0].action).toBe("justify");
+    expect(events[0].target).toBe(them);
+    expect(panel.isVisible).toBe(false);
   });
 });

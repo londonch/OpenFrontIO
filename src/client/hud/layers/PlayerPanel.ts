@@ -9,6 +9,7 @@ import {
 } from "@openfront/engine-api/game/GameTypes";
 import { Emoji, flattenedEmojiTable } from "@openfront/engine-api/Schemas";
 import { renderNumber, renderTroops } from "@openfront/engine-lib/Format";
+import { justifyCost } from "@openfront/engine-lib/strategy/StrategyRules";
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import { EventBus } from "@openfront/shared/EventBus";
 import { html, LitElement } from "lit";
@@ -31,6 +32,7 @@ import {
   SendEmbargoAllIntentEvent,
   SendEmbargoIntentEvent,
   SendEmojiIntentEvent,
+  SendStrategyIntentEvent,
   SendTargetPlayerIntentEvent,
 } from "../../Transport";
 import { UIState } from "../../UIState";
@@ -280,6 +282,96 @@ export class PlayerPanel extends LitElement implements Controller {
     this.closeSend();
     if (e.detail?.closePanel) this.hide();
   };
+
+  private sendStrategy(
+    e: Event,
+    action: SendStrategyIntentEvent["action"],
+    other: PlayerView,
+  ) {
+    e.stopPropagation();
+    this.eventBus.emit(new SendStrategyIntentEvent(action, null, other));
+    this.hide();
+  }
+
+  /**
+   * Grand strategy diplomacy with `other`: justify a war goal, declare war,
+   * offer or accept peace. Tribes are always fair game, and rival teams are
+   * always at war, so neither gets these.
+   */
+  private renderWarActions(my: PlayerView, other: PlayerView) {
+    const view = my.strategy();
+    if (
+      view === null ||
+      other.type() === PlayerType.Bot ||
+      my.isFriendly(other) ||
+      (my.isAtWarWith(other) && !view.wars.includes(other.smallID()))
+    ) {
+      return html``;
+    }
+    const id = other.smallID();
+    let button;
+    if (view.wars.includes(id)) {
+      const incoming = view.incomingPeaceOffers.includes(id);
+      const offered = view.outgoingPeaceOffers.includes(id);
+      button = actionButton({
+        onClick: (e: MouseEvent) =>
+          this.sendStrategy(
+            e,
+            incoming ? "accept_peace" : "offer_peace",
+            other,
+          ),
+        icon: allianceIcon,
+        iconAlt: "Peace",
+        title: translateText(
+          incoming ? "player_panel.accept_peace" : "player_panel.offer_peace",
+        ),
+        label: translateText(
+          incoming ? "player_panel.accept_peace" : "player_panel.offer_peace",
+        ),
+        type: "green",
+        disabled: offered,
+      });
+    } else if (view.warGoals.some((g) => g.target === id)) {
+      button = actionButton({
+        onClick: (e: MouseEvent) => this.sendStrategy(e, "declare_war", other),
+        icon: targetIcon,
+        iconAlt: "War",
+        title: translateText("player_panel.declare_war"),
+        label: translateText("player_panel.declare_war"),
+        type: "red",
+      });
+    } else if (view.truces.some((t) => t.target === id)) {
+      button = actionButton({
+        onClick: (e: MouseEvent) => e.stopPropagation(),
+        icon: shieldIcon,
+        iconAlt: "Truce",
+        title: translateText("player_panel.truce"),
+        label: translateText("player_panel.truce"),
+        type: "normal",
+        disabled: true,
+      });
+    } else {
+      const justifying = view.justification?.target === id;
+      const cost = justifyCost(view.modifiers);
+      const can = view.justification === null && view.politicalPower >= cost;
+      button = actionButton({
+        onClick: (e: MouseEvent) => this.sendStrategy(e, "justify", other),
+        icon: targetIcon,
+        iconAlt: "Justify",
+        title: translateText("player_panel.justify_war_goal_title", { cost }),
+        label: justifying
+          ? `${translateText("player_panel.justifying")} ${Math.floor(
+              (view.justification?.permille ?? 0) / 10,
+            )}%`
+          : translateText("player_panel.justify_war_goal"),
+        type: "yellow",
+        disabled: !can,
+      });
+    }
+    return html`<div class="grid auto-cols-fr grid-flow-col gap-1 mt-1">
+      ${button}
+    </div>`;
+  }
 
   private handleEmbargoClick(
     e: Event,
@@ -929,6 +1021,7 @@ export class PlayerPanel extends LitElement implements Controller {
                     })
                   : ""}
               </div>
+              ${this.renderWarActions(my, other)}
             `}
         ${other === my
           ? html`<div class="grid auto-cols-fr grid-flow-col gap-1">

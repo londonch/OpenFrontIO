@@ -46,6 +46,7 @@ import {
   EMOJI_ASSIST_TARGET_ME,
   NationEmojiBehavior,
 } from "../nation/NationEmojiBehavior";
+import { nationReadyForWar } from "../nation/NationStrategy";
 import { findJuiciestTarget, findRunawayLeader } from "../nation/NationUtils";
 import type { NationWarshipBehavior } from "../nation/NationWarshipBehavior";
 import { TransportShipExecution } from "../TransportShipExecution";
@@ -287,6 +288,9 @@ export class AiAttackBehavior {
     if (this.sail(launch, dst).blocker !== null) return;
 
     const owner = this.game.owner(dst);
+    if (owner.isPlayer() && !nationReadyForWar(this.game, this.player, owner)) {
+      return;
+    }
     if (this.landsBeachheads()) {
       this.sendBeachhead(owner, dst);
       return;
@@ -1316,6 +1320,14 @@ export class AiAttackBehavior {
     nonBotTroops: (targetTroops: number) => number,
     opponent?: Player,
   ): number | null {
+    // Every player-targeted attack funnels through here: no war, no attack
+    // (yet). The nation starts justifying or declares instead.
+    if (
+      target.isPlayer() &&
+      !nationReadyForWar(this.game, this.player, target)
+    ) {
+      return null;
+    }
     const maxTroops = this.game.config().maxTroops(this.player);
     const botWithStructures =
       target.isPlayer() &&

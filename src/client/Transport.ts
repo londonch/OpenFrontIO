@@ -8,6 +8,10 @@ import {
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
 import {
+  StrategyAction,
+  StrategyKey,
+} from "@openfront/engine-api/game/Strategy";
+import {
   AllPlayersStats,
   ClientID,
   Intent,
@@ -167,6 +171,15 @@ export class SendEmbargoAllIntentEvent implements GameEvent {
   constructor(public readonly action: "start" | "stop") {}
 }
 
+/** A grand strategy action: research, focus, law, war goal, war or peace. */
+export class SendStrategyIntentEvent implements GameEvent {
+  constructor(
+    public readonly action: StrategyAction,
+    public readonly key: StrategyKey | null = null,
+    public readonly target: PlayerView | null = null,
+  ) {}
+}
+
 export class SendDeleteUnitIntentEvent implements GameEvent {
   constructor(public readonly unitId: number) {}
 }
@@ -316,6 +329,9 @@ export class Transport {
     this.subscribe(SendEmbargoIntentEvent, (e) => this.onSendEmbargoIntent(e));
     this.subscribe(SendEmbargoAllIntentEvent, (e) =>
       this.onSendEmbargoAllIntent(e),
+    );
+    this.subscribe(SendStrategyIntentEvent, (e) =>
+      this.onSendStrategyIntent(e),
     );
     this.subscribe(BuildUnitIntentEvent, (e) => this.onBuildUnitIntent(e));
 
@@ -860,6 +876,15 @@ export class Transport {
       type: "embargo",
       targetID: event.target.id(),
       action: event.action,
+    });
+  }
+
+  private onSendStrategyIntent(event: SendStrategyIntentEvent) {
+    this.sendIntent({
+      type: "strategy",
+      action: event.action,
+      key: event.key ?? undefined,
+      target: event.target?.id(),
     });
   }
 

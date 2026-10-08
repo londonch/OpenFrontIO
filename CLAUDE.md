@@ -85,6 +85,7 @@ The game server only serves `index.html` and the WebSocket. All other assets (JS
 | `tests/util/Setup.ts`                  | Test helper — creates test games           |
 | `tests/LayerBoundaries.test.ts`        | Enforces the package import rules          |
 | `docs/Architecture.md`                 | Architecture overview                      |
+| `docs/GrandStrategy.md`                | Wars, research, focus, laws, supply rules  |
 | `packages/zbin/README.md`              | Binary wire format for zod schemas         |
 | `docs/Auth.md`                         | JWT/auth flow                              |
 | `docs/API.md`                          | Public API endpoints                       |

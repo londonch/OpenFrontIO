@@ -101,6 +101,13 @@ export class ToggleRenderDebugGuiEvent implements GameEvent {}
 
 export class TogglePerformanceOverlayEvent implements GameEvent {}
 
+/** Opens or closes the national panel; with a tab, opens on that tab. */
+export class ToggleNationalPanelEvent implements GameEvent {
+  constructor(
+    public readonly tab?: "overview" | "research" | "focus" | "diplomacy",
+  ) {}
+}
+
 export class ToggleStructureEvent implements GameEvent {
   constructor(
     public readonly structureTypes: PlayerBuildableUnitType[] | null,
@@ -502,6 +509,13 @@ export class InputHandler {
     this.addKeybindAndEvent("Shift+KeyD", () => {
       this.eventBus.emit(new TogglePerformanceOverlayEvent());
     });
+    this.addKeybindAndEvent(
+      "KeyO",
+      () => {
+        this.eventBus.emit(new ToggleNationalPanelEvent());
+      },
+      (e: KeyboardEvent) => !e.repeat && !e.ctrlKey && !e.metaKey,
+    );
     this.addKeybindAndEvent(this.keybinds.toggleView, () => {
       this.alternateView = false;
       this.eventBus.emit(new AlternateViewEvent(false));

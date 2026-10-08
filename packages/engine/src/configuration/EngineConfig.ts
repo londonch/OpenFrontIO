@@ -3,6 +3,7 @@ import {
   Gold,
   PlayerInfo,
   PlayerType,
+  Structures,
   TerrainType,
   TerraNullius,
   Tick,
@@ -40,6 +41,14 @@ export interface AttackLogicInput {
   falloutRatio: number | null;
   /** Tiles on the attack front this tick (plus jitter); fixed for the tick. */
   borderSize: number;
+  /**
+   * Grand strategy fighting strength of each side (doctrine, equipment,
+   * supply, fuel), 1 when absent. Only player-vs-player fights use them.
+   */
+  attackerStrength?: number;
+  defenderStrength?: number;
+  /** Attack speed multiplier (motorization, supply, fuel), 1 when absent. */
+  attackerSpeed?: number;
 }
 
 export interface AttackLogicResult {
@@ -80,6 +89,10 @@ const SPEED_COST_DIVISOR = 8.55;
 // sub-parity floor on the ratio curve, an overwhelming push lands ~18%
 // faster for a small attacker, ~20% at the 300k midpoint, ~25% for giants.
 const LARGE_ATTACKER_SPEED_DEPTH = 0.73;
+// Grand strategy: bounds on how lopsided equipment, supply and doctrine can
+// make a fight (attacker strength / defender strength).
+const STRENGTH_EDGE_MIN = 1 / 3;
+const STRENGTH_EDGE_MAX = 3;
 
 /**
  * Logistic in log(tiles): ~1 for small territories, easing down to
@@ -115,6 +128,11 @@ function terrainAttackBase(terrain: TerrainType): {
   }
 }
 
+/** Scales by a strategy percent; exactly `value` when there is none. */
+function withStrategyPct(value: number, pct: number): number {
+  return pct === 0 ? value : (value * Math.max(10, 100 + pct)) / 100;
+}
+
 /**
  * The engine's rules: everything in Config plus the tunables only the
  * simulation reads (attack resolution, costs, warships, nukes, trade).
@@ -124,6 +142,16 @@ export class EngineConfig extends Config {
 
   traitorSpeedDebuff(): number {
     return 0.8;
+  }
+
+  /**
+   * Grand strategy rules: wars must be declared, units unlock through
+   * research and cost raw materials, and equipment, supply and doctrine shape
+   * combat. Always on in real games; TestConfig turns them off so tests of
+   * other mechanics don't have to declare wars.
+   */
+  grandStrategy(): boolean {
+    return true;
   }
 
   teamLandShareWinThresholdTenths(): number {
@@ -234,7 +262,10 @@ export class EngineConfig extends Config {
     }
     const distPenalty = citiesVisited * 5_000;
     const gold = Math.max(5000, baseGold - distPenalty);
-    return toInt(gold * this.goldMultiplierFor(player));
+    return toInt(
+      withStrategyPct(gold, player.strategyModifier("tradeIncome")) *
+        this.goldMultiplierFor(player),
+    );
   }
 
   trainStationMinRange(): number {
@@ -247,7 +278,10 @@ export class EngineConfig extends Config {
   tradeShipGold(dist: number, player: PlayerLike): Gold {
     // Sigmoid: concave start, sharp S-curve middle, linear end - heavily punishes trades under range debuff.
     const debuff = this.tradeShipShortRangeDebuff();
-    const baseGold = 75_000 / (1 + exp(-0.03 * (dist - debuff))) + 50 * dist;
+    const baseGold = withStrategyPct(
+      75_000 / (1 + exp(-0.03 * (dist - debuff))) + 50 * dist,
+      player.strategyModifier("tradeIncome"),
+    );
     return BigInt(Math.floor(baseGold * this.goldMultiplierFor(player)));
   }
 
@@ -289,6 +323,13 @@ export class EngineConfig extends Config {
       Math.floor(
         (100 * rejectionModifier) / this.tradeShipSaturation(numTradeShips),
       ),
+    );
+  }
+
+  /** Infinite gold also waives the raw materials units cost. */
+  hasInfiniteResourcesFor(player: PlayerLike): boolean {
+    return (
+      player.type() === PlayerType.Human && this.hasInfiniteGoldFor(player)
     );
   }
 
@@ -424,7 +465,14 @@ export class EngineConfig extends Config {
           Math.min(player.unitsOwned(type), player.unitsConstructed(type)),
         0,
       );
-      return BigInt(costFn(numUnits + extraUnits));
+      const cost = costFn(numUnits + extraUnits);
+      if (!Structures.has(types[0])) return BigInt(cost);
+      // Construction techs and focuses.
+      return BigInt(
+        Math.floor(
+          withStrategyPct(cost, player.strategyModifier("structureCost")),
+        ),
+      );
     };
   }
 
@@ -572,16 +620,36 @@ export class EngineConfig extends Config {
       attacker.numTiles,
       LARGE_ATTACKER_SPEED_DEPTH,
     );
+    const tickFraction =
+      (speedCost *
+        tileCost *
+        largeAttackerSpeedBonus *
+        largeDefenderBonus *
+        traitorCostMod) /
+      input.borderSize;
+
+    const attackerStrength = input.attackerStrength ?? 1;
+    const defenderStrength = input.defenderStrength ?? 1;
+    const attackerSpeed = input.attackerSpeed ?? 1;
+    if (
+      attackerStrength === 1 &&
+      defenderStrength === 1 &&
+      attackerSpeed === 1
+    ) {
+      return { attackerTroopLoss, defenderTroopLoss, tickFraction };
+    }
+    // The stronger side trades better: the attacker loses fewer men per tile,
+    // kills more defenders and pushes faster (speed moves with the square
+    // root, so a 2x edge is ~1.4x faster, not 2x).
+    const edge = within(
+      attackerStrength / defenderStrength,
+      STRENGTH_EDGE_MIN,
+      STRENGTH_EDGE_MAX,
+    );
     return {
-      attackerTroopLoss,
-      defenderTroopLoss,
-      tickFraction:
-        (speedCost *
-          tileCost *
-          largeAttackerSpeedBonus *
-          largeDefenderBonus *
-          traitorCostMod) /
-        input.borderSize,
+      attackerTroopLoss: attackerTroopLoss / edge,
+      defenderTroopLoss: defenderTroopLoss * edge,
+      tickFraction: tickFraction / (Math.sqrt(edge) * attackerSpeed),
     };
   }
 
@@ -645,7 +713,14 @@ export class EngineConfig extends Config {
     } else {
       baseRate = 100n;
     }
-    return BigInt(Math.floor(Number(baseRate) * multiplier));
+    return BigInt(
+      Math.floor(
+        withStrategyPct(
+          Number(baseRate),
+          player.strategyModifier("goldIncome"),
+        ) * multiplier,
+      ),
+    );
   }
 
   nukeSpeed(unitType: UnitType): number {

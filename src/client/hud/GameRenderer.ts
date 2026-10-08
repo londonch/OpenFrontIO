@@ -3,6 +3,7 @@ import { Controller } from "../Controller";
 import { AmbienceController } from "../controllers/AmbienceController";
 import { AttackingTroopsController } from "../controllers/AttackingTroopsController";
 import { BuildPreviewController } from "../controllers/BuildPreviewController";
+import { DepositLabelsController } from "../controllers/DepositLabelsController";
 import { HoverHighlightController } from "../controllers/HoverHighlightController";
 import { LiveStatsController } from "../controllers/LiveStatsController";
 import { MapLayerController } from "../controllers/MapLayerController";
@@ -38,6 +39,7 @@ import { ImmunityTimer } from "./layers/ImmunityTimer";
 import { InGamePromo } from "./layers/InGamePromo";
 import { MainRadialMenu } from "./layers/MainRadialMenu";
 import { MultiTabModal } from "./layers/MultiTabModal";
+import { NationalBar, NationalPanel } from "./layers/NationalPanel";
 import { NewLobbyPrompt } from "./layers/NewLobbyPrompt";
 import { PerformanceOverlay } from "./layers/PerformanceOverlay";
 import { PlayerInfoOverlay } from "./layers/PlayerInfoOverlay";
@@ -196,6 +198,22 @@ export function createRenderer(
   }
   settingsModal.eventBus = eventBus;
 
+  const nationalPanel = document.querySelector(
+    "national-panel",
+  ) as NationalPanel;
+  if (!(nationalPanel instanceof NationalPanel)) {
+    console.error("national panel not found");
+  }
+  nationalPanel.game = game;
+  nationalPanel.eventBus = eventBus;
+
+  const nationalBar = document.querySelector("national-bar") as NationalBar;
+  if (!(nationalBar instanceof NationalBar)) {
+    console.error("national bar not found");
+  }
+  nationalBar.game = game;
+  nationalBar.eventBus = eventBus;
+
   // The in-game settings instance needs the bus so the Audio sliders reach
   // SoundManager, which caches its volumes at construction, and UIState so the
   // attack ratio slider shows the session value the HUD slider may have set.
@@ -332,6 +350,7 @@ export function createRenderer(
     new StructureHighlightController(eventBus, view),
     new ViewModeController(eventBus, view),
     new AttackingTroopsController(game, eventBus, userSettings, view),
+    new DepositLabelsController(game, eventBus, view),
     new SoundEffectController(game, eventBus),
     new AmbienceController(game, eventBus, transformHandler),
     ...(mapLayerController ? [mapLayerController] : []),
@@ -360,6 +379,8 @@ export function createRenderer(
     newLobbyPrompt,
     replayPanel,
     settingsModal,
+    nationalPanel,
+    nationalBar,
     playerPanel,
     headsUpMessage,
     multiTabModal,

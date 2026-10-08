@@ -6,6 +6,7 @@ import {
   TerraNullius,
   UnitType,
 } from "./GameTypes";
+import { ModifierKey } from "./Strategy";
 
 /*
  * Read-only views of game state that rules code (Config, UnitGrid,
@@ -27,6 +28,8 @@ export interface PlayerLike {
   troops(): number;
   gold(): Gold;
   units(type: UnitType): readonly UnitLike[];
+  /** Grand strategy bonus from techs, focuses and laws, integer percent. */
+  strategyModifier(key: ModifierKey): number;
 }
 
 export interface UnitLike {

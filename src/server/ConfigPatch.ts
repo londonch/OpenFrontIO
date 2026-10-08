@@ -20,6 +20,7 @@ const COPIED_KEYS = [
   "infiniteTroops",
   "donateTroops",
   "instantBuild",
+  "instantResearch",
   "randomSpawn",
   "gameMode",
   "disabledUnits",

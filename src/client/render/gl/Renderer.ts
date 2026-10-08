@@ -1041,6 +1041,12 @@ export class GPURenderer {
     this.worldTextPass.setAttackTroopLabels(labels);
   }
 
+  setDepositLabels(
+    labels: import("./passes/WorldTextPass").AttackTroopLabel[],
+  ): void {
+    this.worldTextPass.setDepositLabels(labels);
+  }
+
   applyBonusEvents(events: BonusEvent[]): void {
     if (events.length === 0) return;
     // In live game, filter to local player only. In replay (localPlayerID=0), show all.

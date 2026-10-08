@@ -879,6 +879,7 @@ describe("NationStructureBehavior.doHandleStructures — crowded-map exception",
         startingGold: () => 0n,
       }),
       sharedWaterComponents: () => null, // landlocked -> Factory preferred
+      strategy: () => ({ unitBlocker: () => null }),
       nations: () => Array(400).fill({}),
       numLandTiles: () => 1_000_000, // 400 / 1_000_000 > 1/7500 -> high density
     };

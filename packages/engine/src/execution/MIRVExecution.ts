@@ -102,6 +102,7 @@ export class MirvExecution implements Execution {
         targetPlayer: this.targetPlayer,
       });
       this.mg.recordMirvLaunch();
+      this.mg.strategy().onNukeLaunched(UnitType.MIRV);
       this.mg.stats().bombLaunch(this.player, this.targetPlayer, UnitType.MIRV);
 
       // Betrayal on launch — only once the missile has actually spawned, so
