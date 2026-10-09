@@ -1,8 +1,8 @@
 {
   "name": "openfront-client",
   "engines": {
-    "node": ">=24.15.0 <25",
-    "npm": ">=12.1.0 <13"
+    "node": ">=22",
+    "npm": ">=10"
   },
   "workspaces": [
     "packages/*"
