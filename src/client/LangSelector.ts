@@ -362,7 +362,7 @@ export class LangSelector extends LitElement {
     return text;
   }
 
-  private async openModal() {
+  public async openModal() {
     this.debugMode = this.debugKeyPressed;
     await this.loadLanguageList();
 

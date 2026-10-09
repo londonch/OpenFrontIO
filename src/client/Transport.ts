@@ -50,7 +50,7 @@ import {
 } from "@openfront/shared/ZbinWire";
 import { ZbContext } from "@openfront/zbin";
 import { ClientEnv, NoServerError } from "src/client/ClientEnv";
-import { getPlayToken } from "./Auth";
+import { getPersistentID, getPlayToken } from "./Auth";
 import { LobbyConfig } from "./ClientGameRunner";
 import { clientPlatform } from "./ClientPlatform";
 import { isDesktopShell } from "./DesktopShell";
@@ -713,7 +713,7 @@ export class Transport {
   async joinGame() {
     // Only the first join: the token is short-lived, and a later reconnect
     // must not present one that has since expired.
-    const token = this.lobbyConfig.creatorToken ?? (await getPlayToken());
+    const token = this.lobbyConfig.creatorToken ?? (await this.playToken());
     delete this.lobbyConfig.creatorToken;
     this.sendMsg({
       type: "join",
@@ -736,9 +736,15 @@ export class Transport {
       gameID: this.lobbyConfig.gameID,
       // Note: clientID is not sent - server looks it up from persistentID in token
       lastTurn: lastTurn,
-      token: await getPlayToken(),
+      token: await this.playToken(),
       gitCommit: ClientEnv.gitCommit(),
     } satisfies ClientRejoinMessage);
+  }
+
+  // A local game has no server to authenticate to, so it never asks the auth
+  // API for a session: the device's own id stands in.
+  private playToken(): Promise<string> {
+    return this.isLocal ? Promise.resolve(getPersistentID()) : getPlayToken();
   }
 
   leaveGame() {

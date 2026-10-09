@@ -1,17 +1,7 @@
 import type { GameStartInfo } from "@openfront/engine-api/Schemas";
 import { EventBus } from "@openfront/shared/EventBus";
 import type { ClientMessage } from "@openfront/shared/WireSchemas";
-import { gunzipSync } from "node:zlib";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-vi.mock("../../src/client/Auth", () => ({
-  getAuthHeader: vi.fn(async () => "Bearer test-jwt"),
-  getPersistentID: vi.fn(() => "123e4567-e89b-12d3-a456-426614174000"),
-}));
-
-vi.mock("../../src/client/Api", () => ({
-  getApiBase: vi.fn(() => "https://api.test"),
-}));
 
 vi.mock("src/client/ClientEnv", () => ({
   ClientEnv: {
@@ -21,12 +11,6 @@ vi.mock("src/client/ClientEnv", () => ({
 }));
 
 import { LocalServer } from "../../src/client/LocalServer";
-
-// jsdom doesn't provide CompressionStream; use Node's implementation.
-if (typeof globalThis.CompressionStream === "undefined") {
-  const streamWeb = await import("node:stream/web");
-  (globalThis as any).CompressionStream = streamWeb.CompressionStream;
-}
 
 const CLIENT_ID = "abCD1234";
 
@@ -59,21 +43,25 @@ function makeGameStartInfo(): GameStartInfo {
   } as GameStartInfo;
 }
 
-function makeServer(isReplay: boolean): LocalServer {
+function makeServer(): {
+  server: LocalServer;
+  sent: { type: string }[];
+} {
+  const sent: { type: string }[] = [];
   const server = new LocalServer(
     {
       gameStartInfo: makeGameStartInfo(),
       playerName: "TestUser",
       playerClanTag: null,
     } as any,
-    isReplay,
+    false,
     new EventBus(),
   );
   server.updateCallback(
     () => {},
-    () => {},
+    (msg) => sent.push(msg),
   );
-  return server;
+  return { server, sent };
 }
 
 const winnerMsg: ClientMessage = {
@@ -82,12 +70,7 @@ const winnerMsg: ClientMessage = {
   allPlayersStats: { [CLIENT_ID]: { attacks: [100n] } },
 };
 
-function archivedRecord(call: any) {
-  const body = call[1].body as ArrayBuffer;
-  return JSON.parse(gunzipSync(Buffer.from(body)).toString());
-}
-
-describe("LocalServer archiving", () => {
+describe("LocalServer", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -99,88 +82,19 @@ describe("LocalServer archiving", () => {
     vi.unstubAllGlobals();
   });
 
-  it("archives at win time, without keepalive, and not again at endGame", async () => {
-    const server = makeServer(false);
+  it("starts the game for the local player", () => {
+    const { server, sent } = makeServer();
     server.start();
-
-    server.onMessage(winnerMsg);
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-
-    const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("https://api.test/archive_singleplayer_game");
-    expect(init.method).toBe("POST");
-    expect(init.keepalive).toBe(false);
-    expect(init.headers.Authorization).toBe("Bearer test-jwt");
-
-    const record = archivedRecord(fetchMock.mock.calls[0]);
-    expect(record.gitCommit).toBe("DEV");
-    expect(record.info.winner).toEqual(["player", CLIENT_ID]);
-    expect(record.info.players[0].clientID).toBe(CLIENT_ID);
-
-    // Exiting afterwards must not archive the same game twice.
     server.endGame();
-    await new Promise((r) => setTimeout(r, 10));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(sent[0]?.type).toBe("start");
   });
 
-  it("retries at endGame with keepalive when the win-time upload failed", async () => {
-    fetchMock.mockResolvedValueOnce(new Response(null, { status: 500 }));
-    const server = makeServer(false);
+  it("plays a whole game without touching the network", async () => {
+    const { server } = makeServer();
     server.start();
-
-    server.onMessage(winnerMsg);
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    // Let the failed attempt settle so it is no longer in flight.
-    await new Promise((r) => setTimeout(r, 0));
-
-    server.endGame();
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-
-    const [, init] = fetchMock.mock.calls[1];
-    expect(init.keepalive).toBe(true);
-    expect(archivedRecord(fetchMock.mock.calls[1]).info.winner).toEqual([
-      "player",
-      CLIENT_ID,
-    ]);
-  });
-
-  it("does not start a second upload while one is in flight", async () => {
-    let resolveFetch!: (response: Response) => void;
-    fetchMock.mockImplementationOnce(
-      () => new Promise<Response>((r) => (resolveFetch = r)),
-    );
-    const server = makeServer(false);
-    server.start();
-
-    server.onMessage(winnerMsg);
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-
-    // Exit while the win-time upload is still pending.
-    server.endGame();
-    resolveFetch(new Response(null, { status: 200 }));
-    await new Promise((r) => setTimeout(r, 10));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("still archives at endGame when the game had no winner", async () => {
-    const server = makeServer(false);
-    server.start();
-
-    server.endGame();
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-
-    const [, init] = fetchMock.mock.calls[0];
-    expect(init.keepalive).toBe(true);
-    expect(archivedRecord(fetchMock.mock.calls[0]).info.winner).toBeUndefined();
-  });
-
-  it("never archives replays", async () => {
-    const server = makeServer(true);
-    server.start();
-
     server.onMessage(winnerMsg);
     server.endGame();
-    await new Promise((r) => setTimeout(r, 10));
+    await Promise.resolve();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,12 @@
 import { loadModal } from "./LazyModals";
+import { menuChromeIsTornDown } from "./MenuChrome";
+
+/**
+ * The menu page shown when nothing else is: this build is solo only, so the
+ * single-player setup is the home page. "page-play" (what modals ask for when
+ * they close) leads back to it.
+ */
+export const HOME_PAGE = "page-single-player";
 
 export function closeMobileSidebar() {
   const sidebar = document.getElementById("sidebar-menu");
@@ -95,6 +103,22 @@ export function initNavigation() {
 
     // Dispatch CustomEvent to notify listeners of page change
     window.dispatchEvent(new CustomEvent("showPage", { detail: pageId }));
+
+    // Back to the menu means back to the solo setup. Deferred, and only if no
+    // page is showing by then: closing one page on the way to another also
+    // passes through here (and leaves currentPageId at "page-play"). Skipped
+    // once a game is starting: the solo modal closes itself as it hands off.
+    if (pageId === "page-play") {
+      queueMicrotask(() => {
+        if (
+          document.getElementById(HOME_PAGE) !== null &&
+          document.querySelector(".page-content:not(.hidden)") === null &&
+          !menuChromeIsTornDown()
+        ) {
+          showPage(HOME_PAGE);
+        }
+      });
+    }
   };
 
   window.showPage = showPage;

@@ -36,7 +36,6 @@ import { GameLeftSidebar } from "./layers/GameLeftSidebar";
 import { GameRightSidebar } from "./layers/GameRightSidebar";
 import { HeadsUpMessage } from "./layers/HeadsUpMessage";
 import { ImmunityTimer } from "./layers/ImmunityTimer";
-import { InGamePromo } from "./layers/InGamePromo";
 import { MainRadialMenu } from "./layers/MainRadialMenu";
 import { MultiTabModal } from "./layers/MultiTabModal";
 import { NationalBar, NationalPanel } from "./layers/NationalPanel";
@@ -318,12 +317,6 @@ export function createRenderer(
   immunityTimer.game = game;
   immunityTimer.eventBus = eventBus;
 
-  const inGamePromo = document.querySelector("in-game-promo") as InGamePromo;
-  if (!(inGamePromo instanceof InGamePromo)) {
-    console.error("in-game promo not found");
-  }
-  inGamePromo.game = game;
-
   const tutorialPanel = document.querySelector(
     "tutorial-panel",
   ) as TutorialPanel;
@@ -384,7 +377,6 @@ export function createRenderer(
     playerPanel,
     headsUpMessage,
     multiTabModal,
-    inGamePromo,
     tutorialPanel,
     alertFrame,
     performanceOverlay,

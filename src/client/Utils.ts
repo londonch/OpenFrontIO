@@ -18,14 +18,8 @@ import type { LangSelector } from "./LangSelector";
 import { pagePin } from "./PagePin";
 import { Platform } from "./Platform";
 
-export const TUTORIAL_VIDEO_URL = "https://www.youtube.com/embed/7J5zwb_s_Cg";
-
-// The desktop shell cannot embed YouTube inside Electron, so it bundles the
-// same tutorial and serves it under a reserved prefix of its app:// scheme
-// (see openfront-desktop's protocol.ts, which pins this path with a test).
-// Only meaningful when Platform.isElectron; on the web this path does not
-// exist.
-export const DESKTOP_TUTORIAL_VIDEO_URL = "/__tutorial/tutorial.webm";
+// Linked from Help rather than embedded (see HelpModal).
+export const TUTORIAL_VIDEO_URL = "https://www.youtube.com/watch?v=7J5zwb_s_Cg";
 
 export function normaliseMapKey(mapName: string): string {
   // Asset dirs / translation keys are the map id lowercased. For most maps

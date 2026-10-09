@@ -1,8 +1,7 @@
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import { html } from "lit";
-import { customElement, query, state } from "lit/decorators.js";
+import { customElement, state } from "lit/decorators.js";
 import {
-  DESKTOP_TUTORIAL_VIDEO_URL,
   textDirection,
   translateText,
   TUTORIAL_VIDEO_URL,
@@ -19,8 +18,6 @@ export class HelpModal extends BaseModal {
   protected routerName = "help";
 
   @state() private keybinds: Record<string, string> = this.getKeybinds();
-  @query("#tutorial-video-iframe") private videoIframe?: HTMLIFrameElement;
-  @query("#tutorial-video-player") private videoPlayer?: HTMLVideoElement;
 
   private getKeybinds(): Record<string, string> {
     return new UserSettings().keybinds(Platform.isMac);
@@ -140,35 +137,23 @@ export class HelpModal extends BaseModal {
               class="flex-1 h-px bg-gradient-to-r from-blue-500/50 to-transparent"
             ></div>
           </div>
+          <!-- A link rather than an embed: an embedded player loads YouTube
+               (and its ad trackers) every time Help opens. -->
           <section
-            class="bg-white/5 rounded-xl border border-white/10 overflow-hidden mb-8"
+            class="bg-white/5 rounded-xl border border-white/10 p-4 mb-8 flex flex-col sm:flex-row sm:items-center gap-4"
           >
-            <div class="relative w-full h-0 pb-[56.25%]">
-              ${
-                Platform.isElectron
-                  ? html`<video
-                      id="tutorial-video-player"
-                      class="absolute top-0 left-0 w-full h-full"
-                      src="${DESKTOP_TUTORIAL_VIDEO_URL}"
-                      title="${translateText(
-                        "help_modal.video_tutorial_title",
-                      )}"
-                      controls
-                      preload="metadata"
-                    ></video>`
-                  : html`<iframe
-                      id="tutorial-video-iframe"
-                      class="absolute top-0 left-0 w-full h-full"
-                      src="${this.isModalOpen ? TUTORIAL_VIDEO_URL : ""}"
-                      title="${translateText(
-                        "help_modal.video_tutorial_title",
-                      )}"
-                      frameborder="0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      allowfullscreen
-                    ></iframe>`
-              }
-            </div>
+            <p class="!mb-0 text-sm flex-1">
+              ${translateText("help_modal.video_tutorial_desc")}
+            </p>
+            <a
+              href=${TUTORIAL_VIDEO_URL}
+              title=${translateText("help_modal.video_tutorial_title")}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="shrink-0 hover:bg-white/5 px-6 py-2 text-xs font-bold transition-all duration-200 rounded-lg uppercase tracking-widest bg-malibu-blue/20 text-aquarius border border-malibu-blue/30 no-underline"
+            >
+              ${translateText("help_modal.video_tutorial_watch")}
+            </a>
           </section>
 
           <!-- Troubleshooting Section -->
@@ -209,12 +194,8 @@ export class HelpModal extends BaseModal {
                 class="hover:bg-white/5 px-6 py-2 text-xs font-bold transition-all duration-200 rounded-lg uppercase tracking-widest bg-malibu-blue/20 text-aquarius border border-malibu-blue/30 shadow-[var(--shadow-malibu-blue)]"
                 data-page="page-troubleshooting"
                 @click="${this.openTroubleshooting}"
-                data-i18n="main.go_to_troubleshooting"
               >
-                <span
-                  class="relative z-10 text-2xl"
-                  data-i18n="main.go_to_troubleshooting"
-                ></span>
+                ${translateText("main.go_to_troubleshooting")}
               </button>
             </div>
           </section>
@@ -1313,19 +1294,5 @@ export class HelpModal extends BaseModal {
 
   protected onOpen(): void {
     this.keybinds = this.getKeybinds();
-    // Restore the video src when modal opens
-    if (this.videoIframe) {
-      this.videoIframe.src = TUTORIAL_VIDEO_URL;
-    }
-  }
-
-  protected onClose(): void {
-    // Clear the iframe src to stop video playback
-    if (this.videoIframe) {
-      this.videoIframe.src = "";
-    }
-    // The desktop <video> keeps its src -- the file is local, so unlike the
-    // YouTube iframe there is nothing to unload; pausing is enough.
-    this.videoPlayer?.pause();
   }
 }

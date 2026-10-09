@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 npm run inst             # Install deps (uses npm ci --ignore-scripts — do NOT use npm install)
-npm run dev              # Run client + server in dev mode with hot reload
-npm run start:client     # Client only
-npm run start:server-dev # Server only
+npm start                # Install deps if missing, then serve the solo game on :9000
+npm run dev              # Serve the solo game (Vite only; no game server needed)
+npm run start:server-dev # The multiplayer game server (unused by the solo client)
 npm test                 # Run all tests (Vitest)
 npm run test:coverage    # Tests with coverage
 npm run lint             # Oxlint + ESLint
@@ -33,6 +33,8 @@ OpenFront.io is a real-time multiplayer territorial strategy game. There are fou
 2. **`src/client/`** — Rendering (Pixi.js/WebGL), UI (Lit web components + Tailwind CSS 4), WebSocket communication.
 3. **`src/server/`** — Game coordination, intent relay, WebSocket management (Node.js/Express/ws).
 4. **API** — Closed-source Cloudflare Worker handling auth, stats, cosmetics, monetization. Not in this repo.
+
+**This fork is solo only.** `index.html` holds just the single-player setup (`page-single-player`, the home page: see `HOME_PAGE` in `src/client/Navigation.ts`), settings, help, troubleshooting and language. There are no accounts, ads, store, clans or lobbies in the UI, and a solo game makes no network calls: it runs against `LocalServer` with no heartbeat, archive upload or auth. The multiplayer client and server code is still in the tree, unreferenced by the page, to keep upstream merges simple.
 
 ### Packages
 

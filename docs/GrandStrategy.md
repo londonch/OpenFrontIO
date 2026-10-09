@@ -14,8 +14,14 @@ the client explains them with the same code.
 
 ## Playing it
 
-Press **O** (or click the strip under the top-right menu) to open the
-National panel.
+Run `npm start` and the game opens at http://localhost:9000 on the solo
+setup. Every difficulty's nations justify and declare wars, on each other and
+on you; on Easy and Medium they pick you as a target less often (Easy skips
+you three times in four, Medium one in four), while Hard and Impossible treat
+you like anyone else.
+
+In a game, press **O** (or click the strip under the top-right menu) to open
+the National panel.
 
 | Tab                | What you do there                                                                                   |
 | ------------------ | --------------------------------------------------------------------------------------------------- |

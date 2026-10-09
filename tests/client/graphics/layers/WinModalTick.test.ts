@@ -1,7 +1,6 @@
 import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
 import { EventBus } from "@openfront/shared/EventBus";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchCosmetics } from "../../../../src/client/Cosmetics";
 import "../../../../src/client/hud/layers/WinModal";
 import type { WinModal } from "../../../../src/client/hud/layers/WinModal";
 import { SendWinnerEvent } from "../../../../src/client/Transport";
@@ -9,22 +8,7 @@ import type { GameView } from "../../../../src/client/view";
 
 vi.mock("../../../../src/client/Utils", () => ({
   translateText: vi.fn((key: string) => key),
-  getGamesPlayed: vi.fn(() => 10),
-  isInIframe: vi.fn(() => false),
   homeHref: vi.fn(() => "/"),
-  TUTORIAL_VIDEO_URL: "https://example.com/tutorial",
-}));
-
-vi.mock("../../../../src/client/Api", () => ({
-  getUserMe: vi.fn(async () => null),
-}));
-
-vi.mock("../../../../src/client/Cosmetics", async (importOriginal) => ({
-  ...(await importOriginal<
-    typeof import("../../../../src/client/Cosmetics")
-  >()),
-  fetchCosmetics: vi.fn(async () => null),
-  resolveCosmetics: vi.fn(() => []),
 }));
 
 vi.mock("../../../../src/client/CrazyGamesSDK", () => ({
@@ -153,22 +137,13 @@ describe("WinModal tick win handling", () => {
     await vi.waitFor(() => expect(modal!.isVisible).toBe(true));
   });
 
-  it("shows the buttons as soon as show() runs, before the cosmetics fetch settles", async () => {
-    // A visible modal activates steam-wishlist, which observes its own size;
-    // jsdom has no ResizeObserver.
-    vi.stubGlobal(
-      "ResizeObserver",
-      class {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-      },
-    );
-    vi.mocked(fetchCosmetics).mockReturnValueOnce(new Promise(() => {}));
+  it("shows the buttons and nothing else, without touching the network", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
     setup(makeGame({ winner: ["team", "Blue"], myTeam: "Blue" }));
     document.body.appendChild(modal!);
 
-    void modal!.show();
+    modal!.show();
     await modal!.updateComplete;
 
     expect(modal!.isVisible).toBe(true);
@@ -177,6 +152,10 @@ describe("WinModal tick win handling", () => {
     );
     expect(exit).not.toBeNull();
     expect(exit!.parentElement!.classList.contains("hidden")).toBe(false);
+    // Solo build: no store, wishlist, Discord or video promotions.
+    expect(modal!.querySelector("cosmetic-card, purchase-button")).toBeNull();
+    expect(modal!.querySelector("steam-wishlist, iframe, a")).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("ignores a player win whose winner is not a known player", () => {

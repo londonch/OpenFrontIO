@@ -42,85 +42,39 @@ For license history, see [LICENSING.md](LICENSING.md).
 
 ## 📋 Prerequisites
 
-- [Node.js](https://nodejs.org/) v24.15.0 or newer in the Node 24 release line
-- [npm](https://www.npmjs.com/) v12.1.0 or newer in the npm 12 release line
+- [Node.js](https://nodejs.org/) 22 or newer (npm 10 or newer comes with it)
 - A modern web browser (Chrome, Firefox, Edge, etc.)
 
-Node.js may bundle an older npm version. Upgrade it before installing project dependencies:
+## 🎮 Playing
+
+This fork is a solo grand-strategy game against the AI: no accounts, ads,
+store, clans or multiplayer, and nothing to run but the page itself. From the
+repository folder:
 
 ```bash
-npm install --global --ignore-scripts npm@12.1.0
+npm start
 ```
 
-## 🚀 Installation
+The first run installs the dependencies (about a minute). Then the game opens
+at <http://localhost:9000> on the solo setup: pick a map, a difficulty and a
+name, and press Start Game. Every later `npm start` goes straight there. Set
+`SKIP_BROWSER_OPEN=true` to stop it opening a browser tab.
 
-1. **Clone the repository**
+See [docs/GrandStrategy.md](docs/GrandStrategy.md) for the strategy layer:
+research, national focus, laws, resources, supply and war rules.
 
-   ```bash
-   git clone https://github.com/openfrontio/OpenFrontIO.git
-   cd OpenFrontIO
-   ```
+`npm run dev` does the same without the install check, and `npm run dev:host`
+also serves it to your local network.
 
-2. **Install dependencies**
-
-   ```bash
-   npm run inst
-   ```
-
-   Do NOT use `npm install` nor `npm i` for project dependencies. Use `npm run inst`; it runs the safer `npm ci --ignore-scripts` to install exactly the versions in `package-lock.json` without running lifecycle scripts.
-
-   The repository also rejects dependency releases less than seven days old and dependencies sourced from Git, remote URLs, local tarballs, or directories. Wait until a new release passes the seven-day window before updating it; security exceptions require explicit maintainer review.
-
-## 🎮 Running the Game
-
-### Development Mode
-
-Run both the client and server in development mode with live reloading:
+### Installing dependencies by hand
 
 ```bash
-npm run dev
+npm run inst
 ```
 
-This will:
+Do NOT use `npm install` nor `npm i` for project dependencies. Use `npm run inst`; it runs the safer `npm ci --ignore-scripts` to install exactly the versions in `package-lock.json` without running lifecycle scripts.
 
-- Start the webpack dev server for the client
-- Launch the game server with development settings
-- Open the game in your default browser (to disable this behavior, set `SKIP_BROWSER_OPEN=true` in your environment)
-
-### Client Only
-
-To run just the client with hot reloading:
-
-```bash
-npm run start:client
-```
-
-### Server Only
-
-To run just the server with development settings:
-
-```bash
-npm run start:server-dev
-```
-
-### Connecting to staging or production backends
-
-Sometimes it's useful to connect to production servers when replaying a game, testing user profiles, purchases, or login flow.
-
-> To replay a production game, make sure you're on the same commit that the game you want to replay was executed on, you can find the `gitCommit` value via `https://api.openfront.io/game/[gameId]`.
-> Unfinished games cannot be replayed on localhost.
-
-To connect to staging api servers:
-
-```bash
-npm run dev:staging
-```
-
-To connect to production api servers:
-
-```bash
-npm run dev:prod
-```
+The repository also rejects dependency releases less than seven days old and dependencies sourced from Git, remote URLs, local tarballs, or directories. Wait until a new release passes the seven-day window before updating it; security exceptions require explicit maintainer review.
 
 ## 🛠️ Development Tools
 

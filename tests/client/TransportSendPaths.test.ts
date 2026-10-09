@@ -22,8 +22,13 @@ vi.mock("../../src/client/ClientEnv", () => ({
     gitCommit: () => "test-commit",
   },
 }));
+const auth = vi.hoisted(() => ({
+  getPlayToken: vi.fn(async () => "8f1d2c3e-4b5a-4c6d-8e7f-90a1b2c3d4e5"),
+  getPersistentID: vi.fn(() => "11111111-2222-4333-8444-555555555555"),
+}));
 vi.mock("../../src/client/Auth", () => ({
-  getPlayToken: async () => "8f1d2c3e-4b5a-4c6d-8e7f-90a1b2c3d4e5",
+  getPlayToken: auth.getPlayToken,
+  getPersistentID: auth.getPersistentID,
 }));
 const localServer = vi.hoisted(() => ({
   onMessage: vi.fn(),
@@ -247,6 +252,32 @@ describe("Transport send paths", () => {
       expect(tokens).toEqual([
         creatorToken,
         "8f1d2c3e-4b5a-4c6d-8e7f-90a1b2c3d4e5",
+      ]);
+    });
+
+    // A solo game has no server to authenticate to: asking the auth API for
+    // a token would only ever fail (there is none running locally).
+    it("joins and rejoins a local game with the device id, never the auth API", async () => {
+      auth.getPlayToken.mockClear();
+      const { transport } = makeTransport({
+        gameRecord: {} as LobbyConfig["gameRecord"],
+      });
+      transports.push(transport);
+      transport.connect(
+        () => {},
+        () => {},
+      );
+
+      await transport.joinGame();
+      await transport.rejoinGame(3);
+
+      expect(auth.getPlayToken).not.toHaveBeenCalled();
+      const tokens = localServer.onMessage.mock.calls.map(
+        ([m]) => (m as { token?: string }).token,
+      );
+      expect(tokens).toEqual([
+        "11111111-2222-4333-8444-555555555555",
+        "11111111-2222-4333-8444-555555555555",
       ]);
     });
   });
